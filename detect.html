@@ -1,0 +1,630 @@
+{% extends "base.html" %}
+
+{% block title %}Fire & Smoke Detection - Live Detection{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    :root {
+        --primary-color: #ff4d4d;
+        --secondary-color: #ff8c66;
+        --dark-bg: #0f0f1a;
+        --darker-bg: #0a0a12;
+        --light-text: #ffffff;
+        --muted-text: #b3b3cc;
+    } 
+    
+    body { 
+        background-color: var(--dark-bg);
+        color: var(--light-text);
+        padding-bottom: 2rem;
+        min-height: 100vh;
+        font-family: 'Poppins', sans-serif;
+    }
+    .detection-container {
+        margin-top: 2rem;
+    }
+    .card {
+        margin-bottom: 1.5rem;
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .card-header {
+        font-weight: 600;
+        border-radius: 10px 10px 0 0 !important;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    #uploadedPreview, #processedPreview {
+        max-width: 100%;
+        border-radius: 4px;
+        margin: 0 auto;
+    }
+    
+    #noUploadedPreview, #noProcessedPreview {
+        padding: 2rem;
+        color: var(--muted-text);
+        font-style: italic;
+    }
+    
+    .form-control, .form-select {
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--light-text);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: var(--primary-color);
+        color: var(--light-text);
+        box-shadow: 0 0 0 0.25rem rgba(255, 77, 77, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
+    }
+    .card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: var(--light-text);
+    }
+    
+    .card-header {
+        font-weight: 600;
+        border-radius: 10px 10px 0 0 !important;
+        color: white;
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    }
+    .btn {
+        margin: 0.25rem;
+    }
+    .btn-primary {
+        background-color: #e74c3c;
+        border-color: #e74c3c;
+    }
+    .btn-primary:hover {
+        background-color: #c0392b;
+        border-color: #c0392b;
+    }
+    .btn-warning {
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: #000;
+    }
+    .btn-warning:hover {
+        background-color: #ffca2c;
+        border-color: #ffc720;
+    }
+    .btn-success {
+        background-color: #198754;
+        border-color: #198754;
+    }
+    .btn-success:hover {
+        background-color: #157347;
+        border-color: #146c43;
+    }
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+    .btn-danger:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+    .btn-info {
+        background-color: #0dcaf0;
+        border-color: #0dcaf0;
+        color: #000;
+    }
+    .btn-info:hover {
+        background-color: #31d2f2;
+        border-color: #25cff2;
+    }
+    #video, #resultImage {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 8px;
+        background-color: #000;
+    }
+    #captureCanvas {
+        display: none;
+    }
+    .bg-secondary {
+        background-color: #6c757d !important;
+    }
+    .bg-success {
+        background-color: #198754 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container detection-container">
+    <div class="row">
+        <!-- Left Column: Camera Feed and Previews -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-camera-video"></i> Live Camera Feed
+                </div>
+                <div class="card-body text-center">
+                    <video id="video" autoplay playsinline class="img-fluid"></video>
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                </div>
+                <div class="card-footer">
+                    <button id="startCamera" class="btn btn-primary">
+                        <i class="bi bi-camera"></i> Start Camera
+                    </button>
+                    <button id="stopCamera" class="btn btn-danger" disabled>
+                        <i class="bi bi-stop-circle"></i> Stop Camera
+                    </button>
+                    <button id="captureBtn" class="btn btn-success" disabled>
+                        <i class="bi bi-camera-fill"></i> Capture
+                    </button>
+                    <button id="detectBtn" class="btn btn-warning" disabled>
+                        <i class="bi bi-search"></i> Detect
+                    </button>
+                    <button id="autoDetectBtn" class="btn btn-info">
+                        <i class="bi bi-arrow-repeat"></i> Auto Detect
+                    </button>
+                </div>
+            </div>
+
+            <!-- Image Upload Section -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-upload"></i> Upload Image for Detection
+                </div>
+                <div class="card-body">
+                    <input type="file" id="uploadInput" accept="image/*" class="form-control">
+                    <button id="uploadDetectBtn" class="btn btn-warning mt-3">
+                        <i class="bi bi-search"></i> Detect Uploaded Image
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Results -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-graph-up"></i> Detection Results
+                </div>
+                <div class="card-body">
+                    <img id="resultImage" src="" class="img-fluid mb-3" alt="Detection result will appear here">
+                    <div id="resultInfo" class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No detection results yet.
+                    </div>
+                    <!-- Alarm Control Section -->
+                    <div id="alarmControl" class="mt-3" style="display: none;">
+                        <div class="alert alert-warning" id="alarmStatus">
+                            <i class="bi bi-exclamation-triangle"></i> <strong>ALARM ACTIVE!</strong> Fire or smoke detected!
+                        </div>
+                        <button id="stopAlarmBtn" class="btn btn-danger w-100">
+                            <i class="bi bi-stop-circle"></i> Stop Alarm
+                        </button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a id="downloadLink" href="#" class="btn btn-primary disabled" download="detection_result.jpg">
+                        <i class="bi bi-download"></i> Download Result
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Previews Section -->
+    <div class="row mt-4">
+        <!-- Uploaded Image Preview -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-upload"></i> Uploaded Image
+                </div>
+                <div class="card-body text-center d-flex flex-column">
+                    <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                        <img id="uploadedPreview" src="#" alt="Uploaded Image" class="img-fluid" style="display: none; max-height: 300px; object-fit: contain;">
+                        <div id="noUploadedPreview" class="text-muted">No image uploaded yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Processed Image Preview -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="bi bi-image"></i> Processed Result
+                </div>
+                <div class="card-body text-center d-flex flex-column">
+                    <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                        <img id="processedPreview" src="#" alt="Processed Result" class="img-fluid" style="display: none; max-height: 300px; object-fit: contain;">
+                        <div id="noProcessedPreview" class="text-muted">Processing result will appear here</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let video = document.getElementById("video");
+let stream = null;
+let captureCanvas = document.getElementById("captureCanvas");
+let capturedBlob = null;
+let autoDetectInterval = null;
+
+// Stop camera stream
+function stopCameraStream() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+        stream = null;
+    }
+    if (autoDetectInterval) {
+        clearInterval(autoDetectInterval);
+        autoDetectInterval = null;
+    }
+    document.getElementById("stopCamera").disabled = true;
+    document.getElementById("startCamera").disabled = false;
+    document.getElementById("captureBtn").disabled = true;
+    document.getElementById("detectBtn").disabled = true;
+}
+
+// Start camera
+document.getElementById("startCamera").onclick = async () => {
+    try {
+        stopCameraStream();
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: 1280, 
+                height: 720, 
+                facingMode: 'environment' 
+            } 
+        });
+        video.srcObject = stream;
+        await video.play();
+        document.getElementById("startCamera").disabled = true;
+        document.getElementById("stopCamera").disabled = false;
+        document.getElementById("captureBtn").disabled = false;
+        document.getElementById("detectBtn").disabled = true;
+        document.getElementById("autoDetectBtn").disabled = false;
+    } catch (err) {
+        console.error("Error accessing camera:", err);
+        alert("Could not access the camera: " + err.message);
+    }
+};
+
+// Stop camera
+document.getElementById("stopCamera").onclick = stopCameraStream;
+
+// Capture image
+document.getElementById("captureBtn").onclick = () => {
+    captureCanvas.width = video.videoWidth;
+    captureCanvas.height = video.videoHeight;
+    const ctx = captureCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+    
+    captureCanvas.toBlob((blob) => {
+        if (!blob) {
+            console.error("Failed to capture image");
+            return;
+        }
+        capturedBlob = blob;
+        
+        // Show uploaded preview
+        const uploadedPreview = document.getElementById("uploadedPreview");
+        const noUploadedPreview = document.getElementById("noUploadedPreview");
+        uploadedPreview.src = URL.createObjectURL(blob);
+        uploadedPreview.style.display = "block";
+        noUploadedPreview.style.display = "none";
+        
+        // Hide processed preview until we have new results
+        document.getElementById("processedPreview").style.display = "none";
+        document.getElementById("noProcessedPreview").style.display = "block";
+        
+        document.getElementById("detectBtn").disabled = false;
+        document.getElementById("resultInfo").innerHTML = 
+            '<div class="alert alert-success">Image captured! Click "Detect" to analyze.</div>';
+    }, 'image/jpeg', 0.95);
+};
+
+// Upload image handler
+document.getElementById("uploadInput").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        capturedBlob = new Blob([event.target.result], { type: file.type });
+        
+        // Show uploaded preview
+        const uploadedPreview = document.getElementById("uploadedPreview");
+        const noUploadedPreview = document.getElementById("noUploadedPreview");
+        uploadedPreview.src = event.target.result;
+        uploadedPreview.style.display = "block";
+        noUploadedPreview.style.display = "none";
+        
+        // Hide processed preview until we have new results
+        document.getElementById("processedPreview").style.display = "none";
+        document.getElementById("noProcessedPreview").style.display = "block";
+        
+        document.getElementById("resultImage").src = event.target.result;
+        document.getElementById("detectBtn").disabled = false;
+        document.getElementById("uploadDetectBtn").disabled = false;
+        document.getElementById("resultInfo").innerHTML = 
+            '<div class="alert alert-success">Image uploaded! Click "Detect" to analyze.</div>';
+    };
+    reader.readAsDataURL(file);
+});
+
+// Send to backend
+async function sendToBackend(blob) {
+    const resultImage = document.getElementById("resultImage");
+    const resultInfo = document.getElementById("resultInfo");
+    const downloadLink = document.getElementById("downloadLink");
+    const processedPreview = document.getElementById("processedPreview");
+    const noProcessedPreview = document.getElementById("noProcessedPreview");
+
+    // Show loading state
+    resultInfo.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Processing image...</p>
+            <div class="progress mt-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+            </div>
+        </div>`;
+
+    try {
+        console.log("Creating FormData and preparing request...");
+        const formData = new FormData();
+        formData.append("image", blob, `detection_${Date.now()}.jpg`);
+
+        console.log("Sending request to /capture endpoint...");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+        try {
+            // Use full URL to avoid any path resolution issues
+            const baseUrl = window.location.origin;
+            const response = await fetch(`${baseUrl}/capture`, {
+                method: "POST",
+                body: formData,
+                signal: controller.signal,
+                credentials: 'same-origin'
+            });
+            clearTimeout(timeoutId);
+
+            console.log("Response status:", response.status);
+            
+            if (!response.ok) {
+                console.error("Response not OK, status:", response.status);
+                let errorMessage = `Server error: ${response.status} ${response.statusText}`;
+                
+                try {
+                    const errorData = await response.json();
+                    console.error("Error details:", errorData);
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    console.error("Could not parse error response:", e);
+                }
+                
+                throw new Error(errorMessage);
+            }
+
+            console.log("Parsing JSON response...");
+            const data = await response.json();
+            console.log("Response data:", data);
+
+            if (data.status === "success") {
+                console.log("Detection successful, updating UI...");
+                // Update the result image
+                resultImage.src = data.annotated_image;
+                
+                // Update alarm UI based on server response
+                updateAlarmUI(data.alarm_active || false);
+                
+                // Update processed preview
+                processedPreview.src = data.annotated_image;
+                processedPreview.style.display = "block";
+                noProcessedPreview.style.display = "none";
+                
+                // Update download link with timestamp and enable the button
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const downloadLink = document.getElementById('downloadLink');
+                if (downloadLink) {
+                    // Store the image data in a data attribute
+                    downloadLink.setAttribute('data-image', data.annotated_image);
+                    downloadLink.setAttribute('data-filename', `fire_detection_${timestamp}.jpg`);
+                    
+                    // Enable the download button
+                    downloadLink.classList.remove("disabled");
+                    downloadLink.style.display = 'inline-block';
+                    
+                    // Add click handler if not already added
+                    if (!downloadLink._clickHandlerAdded) {
+                        downloadLink.addEventListener('click', function(e) {
+                            if (this.classList.contains('disabled')) {
+                                e.preventDefault();
+                                return false;
+                            }
+                            const imageData = this.getAttribute('data-image');
+                            const filename = this.getAttribute('data-filename');
+                            if (imageData) {
+                                const a = document.createElement('a');
+                                a.href = imageData;
+                                a.download = filename;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }
+                            return true;
+                        });
+                        downloadLink._clickHandlerAdded = true;
+                    }
+                }
+                
+                // Format detections info
+                const detectionsInfo = data.detections && data.detections.length > 0
+                    ? data.detections.map(det => 
+                        `${det.label} (${(det.confidence * 100).toFixed(1)}%)`
+                    ).join(", ")
+                    : "No objects detected";
+                
+                // Show success message with detection info
+                resultInfo.innerHTML = `
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle"></i> Detection Complete</h5>
+                        <p><strong>Processing Time:</strong> ${data.process_time.toFixed(2)} seconds</p>
+                        <p><strong>Detected:</strong> ${detectionsInfo}</p>
+                        <p><strong>Total Detections:</strong> ${data.detection_count}</p>
+                    </div>`;
+            } else {
+                throw new Error(data.error || "Unknown error during detection");
+            }
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error("Request timed out. The server is taking too long to respond.");
+            }
+            throw error; // Re-throw to be caught by the outer catch
+        }
+    } catch (error) {
+        console.error("Detection error:", error);
+        let errorMessage = error.message || "An unknown error occurred";
+        
+        // Handle network errors
+        if (error instanceof TypeError) {
+            if (error.message.includes("Failed to fetch")) {
+                errorMessage = "Failed to connect to the server. Please ensure the server is running and try again.";
+                // Add server status check
+                try {
+                    const status = await fetch(window.location.origin + '/health');
+                    if (!status.ok) {
+                        errorMessage += " The server is not responding. Please restart the server and try again.";
+                    }
+                } catch (e) {
+                    errorMessage += " The server is not responding. Please restart the server and try again.";
+                }
+            }
+        } else if (error.message.includes("timed out")) {
+            errorMessage = "The request took too long. The AI model is processing your image. This can happen with the first request or complex images. Please try again.";
+        }
+        
+        resultInfo.innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-exclamation-triangle"></i> Error</h5>
+                <p>${errorMessage}</p>
+                <p class="mt-2 small text-muted">If this problem persists, please try again later or contact support.</p>
+            </div>`;
+    }
+}
+
+// Detect button
+document.getElementById("detectBtn").onclick = async () => {
+    if(!capturedBlob) { alert("Capture an image first!"); return; }
+    await sendToBackend(capturedBlob);
+};
+
+// Upload detection
+document.getElementById("uploadDetectBtn").onclick = async () => {
+    const fileInput = document.getElementById("uploadInput");
+    if(fileInput.files.length===0) { alert("Select an image first!"); return; }
+    await sendToBackend(fileInput.files[0]);
+};
+
+// Auto-detect
+document.getElementById("autoDetectBtn").onclick = () => {
+    const autoDetectBtn = document.getElementById("autoDetectBtn");
+    
+    if (autoDetectInterval) {
+        // Stop auto-detection
+        clearInterval(autoDetectInterval);
+        autoDetectInterval = null;
+        autoDetectBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Auto Detect';
+        autoDetectBtn.classList.remove('btn-danger');
+        autoDetectBtn.classList.add('btn-info');
+    } else {
+        // Start auto-detection
+        autoDetectBtn.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Auto Detect';
+        autoDetectBtn.classList.remove('btn-info');
+        autoDetectBtn.classList.add('btn-danger');
+        
+        // Auto-capture and detect every 4 seconds
+        autoDetectInterval = setInterval(async () => {
+            const captureBtn = document.getElementById("captureBtn");
+            const detectBtn = document.getElementById("detectBtn");
+            
+            if (captureBtn && !captureBtn.disabled) {
+                captureBtn.click();
+                
+                // Small delay before detection
+                setTimeout(() => {
+                    if (detectBtn && !detectBtn.disabled) {
+                        detectBtn.click();
+                    }
+                }, 500);
+            }
+        }, 4000);
+    }
+};
+
+// Alarm control functionality
+document.getElementById("stopAlarmBtn").onclick = async () => {
+    try {
+        const response = await fetch('/alarm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'stop' })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Alarm stopped:', data);
+            updateAlarmUI(false);
+        } else {
+            console.error('Failed to stop alarm');
+        }
+    } catch (error) {
+        console.error('Error stopping alarm:', error);
+    }
+};
+
+function updateAlarmUI(alarmActive) {
+    const alarmControl = document.getElementById('alarmControl');
+    const alarmStatus = document.getElementById('alarmStatus');
+    
+    if (alarmActive) {
+        alarmControl.style.display = 'block';
+        alarmStatus.className = 'alert alert-warning';
+        alarmStatus.innerHTML = '<i class="bi bi-exclamation-triangle"></i> <strong>ALARM ACTIVE!</strong> Fire or smoke detected!';
+    } else {
+        alarmControl.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
