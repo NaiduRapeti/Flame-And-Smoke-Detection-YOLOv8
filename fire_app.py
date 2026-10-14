@@ -11,7 +11,7 @@ from PIL import Image
 import numpy as np
 import cv2
 
-# ---------------- LOGGING ---------------
+# ---------------- LOGGING ----------------
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best.pt")
 
 # Initialize Flask app
-# Initialize Flask app
-# Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__,
+            static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
+            static_url_path='/static',
+            template_folder='templates')
 
 # App configuration
 app.config.update(
