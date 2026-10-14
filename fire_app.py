@@ -22,10 +22,11 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best.pt")
 
 # Initialize Flask app
+# Initialize Flask app
 app = Flask(__name__,
             static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
             static_url_path='/static',
-            template_folder='templates')
+            template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
 # App configuration
 app.config.update(
