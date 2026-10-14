@@ -11,7 +11,7 @@ from PIL import Image
 import numpy as np
 import cv2
 
-# ---------------- LOGGING ----------------
+# ---------------- LOGGING ---------------
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
