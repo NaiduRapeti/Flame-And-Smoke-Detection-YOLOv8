@@ -15,17 +15,17 @@ import cv2
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# ---------------- CONFIG ---------------
+# ---------------- CONFIG ----------------
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best.pt")
 
-# Initialize Flask app
+# Initialize Flask app with absolute paths for production (Render/Gunicorn)
 app = Flask(__name__,
             static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
             static_url_path='/static',
-            template_folder='templates')
+            template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 
 # App configuration
 app.config.update(
@@ -138,9 +138,6 @@ def stop_alarm():
 
 def alarm_loop():
     """Alarm loop that runs in a separate thread"""
-    # This creates a simple beep sound using system beep
-    # In a real application, you might want to use a proper audio file
-    import winsound  # Windows specific
     import platform
     
     while True:
@@ -150,10 +147,9 @@ def alarm_loop():
         
         try:
             if platform.system() == 'Windows':
-                # Use Windows system beep
+                import winsound
                 winsound.Beep(1000, 500)  # Frequency: 1000Hz, Duration: 500ms
             else:
-                # For non-Windows systems, print alarm message
                 print("\a")  # Terminal bell
                 time.sleep(0.5)
             
@@ -184,26 +180,22 @@ def debug_static():
 
 # ---------------- ROUTES ----------------
 
-# HOME (matches base.html url_for('home'))
 @app.route("/")
 @app.route("/home")
 def home():
     return render_template("index.html")
 
 
-# ABOUT PAGE
 @app.route("/about")
 def about():
     return render_template("about.html")
 
 
-# DETECT PAGE
 @app.route("/detect")
 def detect():
     return render_template("detect.html")
 
 
-# IMAGE UPLOAD
 @app.route("/upload", methods=["POST", "OPTIONS"])
 def upload():
     if request.method == "OPTIONS":
@@ -228,23 +220,17 @@ def upload():
             if not f or f.filename == '':
                 continue
                 
-            # Create a secure filename
             filename = os.path.join(app.config["UPLOAD_FOLDER"], f.filename)
-            
-            # Save the file
             f.save(filename)
             
-            # Read the image
             try:
                 bgr = cv2.imdecode(np.fromfile(filename, np.uint8), cv2.IMREAD_COLOR)
                 if bgr is None:
                     pil = Image.open(filename).convert("RGB")
                     bgr = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
                 
-                # Process the image
                 annotated, detection_results = detect_and_annotate_bgr(bgr)
                 
-                # Check for fire or smoke and trigger alarm if detected
                 if check_fire_or_smoke_detections(detection_results):
                     start_alarm()
                     logger.warning("Fire or smoke detected in uploaded image! Alarm triggered.")
@@ -252,7 +238,6 @@ def upload():
                     stop_alarm()
                     logger.info("No fire or smoke detected in uploaded image. Alarm stopped.")
                 
-                # Convert to data URLs
                 uploaded.append(bgr_to_dataurl_png(bgr))
                 detections.append(bgr_to_dataurl_png(annotated))
                 
@@ -277,10 +262,8 @@ def upload():
         return jsonify({"error": str(e)}), 500
 
 
-# CAMERA CAPTURE
 @app.route("/capture", methods=["POST", "OPTIONS"])
 def capture():
-    # Handle CORS preflight
     if request.method == "OPTIONS":
         response = make_response()
         response.headers.add("Access-Control-Allow-Origin", "*")
@@ -289,33 +272,28 @@ def capture():
         response.headers.add("Access-Control-Max-Age", "3600")
         return response
 
-    # Set CORS headers for the main response
     response_headers = {
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json"
     }
 
     try:
-        # Check if the request has the file part
         if "image" not in request.files:
             return jsonify({"error": "No image provided"}), 400, response_headers
 
         file = request.files["image"]
         
-        # Check if file is empty
         if not file or file.filename == '':
             return jsonify({"error": "No file selected"}), 400, response_headers
             
-        # Check file size (limit to 10MB)
         file.seek(0, os.SEEK_END)
         file_length = file.tell()
         file.seek(0)
         
-        if file_length > 10 * 1024 * 1024:  # 10MB limit
+        if file_length > 10 * 1024 * 1024:
             return jsonify({"error": "File size exceeds 10MB limit"}), 400, response_headers
 
         try:
-            # Read and validate image
             file_bytes = file.read()
             if not file_bytes:
                 return jsonify({"error": "Empty file content"}), 400, response_headers
@@ -326,13 +304,11 @@ def capture():
             if bgr is None:
                 return jsonify({"error": "Invalid or unsupported image format"}), 400, response_headers
 
-            # Process the image
             try:
                 start = time.time()
                 annotated, detections = detect_and_annotate_bgr(bgr)
                 process_time = time.time() - start
                 
-                # Check for fire or smoke and trigger alarm if detected
                 if check_fire_or_smoke_detections(detections):
                     start_alarm()
                     logger.warning("Fire or smoke detected! Alarm triggered.")
@@ -365,10 +341,8 @@ def capture():
         return jsonify({"error": "Internal server error"}), 500, response_headers
 
 
-# ALARM CONTROL ENDPOINT
 @app.route("/alarm", methods=["POST", "OPTIONS"])
 def alarm_control():
-    # Handle CORS preflight
     if request.method == "OPTIONS":
         response = make_response()
         response.headers.add("Access-Control-Allow-Origin", "*")
@@ -409,12 +383,9 @@ def alarm_control():
         return jsonify({"error": str(e)}), 500, response_headers
 
 
-# Health check endpoint
 @app.route('/health')
 def health_check():
-    """Simple health check endpoint"""
     try:
-        # Add any additional health checks here
         return jsonify({
             'status': 'healthy',
             'timestamp': time.time(),
@@ -435,11 +406,6 @@ def internal_error(error):
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    # Ensure templates are auto-reloaded
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    
-    # Create upload folder if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
-    # Run the app
     app.run(debug=True, host="0.0.0.0", port=5000)
